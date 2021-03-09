@@ -8,6 +8,7 @@ import (
 type Config struct {
 	// eureka服务端地址
 	DefaultZone string
+
 	// 心跳间隔，默认30s
 	RenewalIntervalInSecs int
 	// 获取服务列表间隔，默认15s

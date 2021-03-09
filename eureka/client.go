@@ -2,6 +2,7 @@ package eureka
 
 import (
 	"log"
+	"math/rand"
 	"net"
 	"os"
 	"os/signal"
@@ -20,10 +21,19 @@ type Client struct {
 	Config     *Config
 	// eureka服务中注册的应用
 	Applications *Applications
+
+	//解析后eureka服务端地址
+	eurekaUrls []string
+
+	once sync.Once
 }
 
 // Start 启动时注册客户端，并后台刷新服务列表，以及心跳
 func (c *Client) Start() {
+	c.once.Do(func() {
+		c.eurekaUrls = strings.Split(c.Config.DefaultZone, ",")
+	})
+
 	c.mutex.Lock()
 	c.Running = true
 	c.mutex.Unlock()
@@ -44,6 +54,17 @@ func (c *Client) Start() {
 	go c.heartbeat()
 	// 监听退出信号，自动删除注册信息
 	go c.handleSignal()
+}
+
+func (c *Client) pickUrl() string {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	index := 0
+	if len(c.eurekaUrls) > 1 {
+		index = rand.Intn(len(c.eurekaUrls) - 1)
+	}
+	return c.eurekaUrls[index]
 }
 
 // refresh 刷新服务列表
@@ -89,24 +110,24 @@ func (c *Client) heartbeat() {
 
 func (c *Client) doRegister() error {
 	instance := c.Config.instance
-	return Register(c.Config.DefaultZone, c.Config.App, instance)
+	return Register(c.pickUrl(), c.Config.App, instance)
 }
 
 func (c *Client) doUnRegister() error {
 	instance := c.Config.instance
-	return UnRegister(c.Config.DefaultZone, instance.App, instance.InstanceID)
+	return UnRegister(c.pickUrl(), instance.App, instance.InstanceID)
 }
 
 func (c *Client) doHeartbeat() error {
 	instance := c.Config.instance
-	return Heartbeat(c.Config.DefaultZone, instance.App, instance.InstanceID)
+	return Heartbeat(c.pickUrl(), instance.App, instance.InstanceID)
 }
 
 func (c *Client) doRefresh() error {
 	// todo If the delta is disabled or if it is the first time, get all applications
 
 	// get all applications
-	applications, err := Refresh(c.Config.DefaultZone)
+	applications, err := Refresh(c.pickUrl())
 	if err != nil {
 		return err
 	}
