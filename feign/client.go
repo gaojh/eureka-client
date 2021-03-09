@@ -134,7 +134,7 @@ func (c *Client) app(app string) *resty.Client {
 
 	restyClient := resty.New()
 	restyClient.HostURL = u
-	log.Println(fmt.Sprintf("选择url："))
+	log.Println(fmt.Sprintf("选择url：%v", u))
 	return restyClient
 }
 
